@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voice Transcriber</title>
+    <!-- Telegram Web App API -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        select {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+            background-color: var(--tg-theme-secondary-bg-color, #f4f4f4);
+            color: var(--tg-theme-text-color, #000);
+            font-size: 16px;
+        }
+        #recordBtn {
+            background-color: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        #recordBtn:active { transform: scale(0.95); }
+        #recordBtn.recording {
+            background-color: #ff3b30;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 59, 48, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+        #status { margin-top: 20px; font-size: 16px; font-weight: 500; }
+        #resultBox {
+            margin-top: 20px;
+            width: 90%;
+            min-height: 80px;
+            padding: 15px;
+            border-radius: 12px;
+            background-color: var(--tg-theme-secondary-bg-color, #f4f4f4);
+            border: 1px solid var(--tg-theme-hint-color, #ccc);
+            display: none;
+            word-wrap: break-word;
+            text-align: left;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <select id="languageSelect">
+        <option value="en-US">English</option>
+        <option value="fa-IR">فارسی</option>
+    </select>
+
+    <button id="recordBtn">Press & Talk</button>
+    <div id="status">Ready</div>
+    <div id="resultBox"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Opens the app to full height
+
+        // REPLACE THIS with your actual Python server URL later
+        const BACKEND_URL = "https://YOUR-BACKEND-URL.com/transcribe"; 
+
+        const recordBtn = document.getElementById('recordBtn');
+        const statusDiv = document.getElementById('status');
+        const resultBox = document.getElementById('resultBox');
+        const languageSelect = document.getElementById('languageSelect');
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = sendAudioToServer;
+
+                mediaRecorder.start();
+                isRecording = true;
+                recordBtn.classList.add('recording');
+                recordBtn.innerText = "Stop";
+                statusDiv.innerText = "Listening...";
+                resultBox.style.display = "none";
+            } catch (err) {
+                statusDiv.innerText = "Microphone access denied.";
+                console.error("Mic error:", err);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            recordBtn.innerText = "Press & Talk";
+            statusDiv.innerText = "Processing audio...";
+        }
+
+        async function sendAudioToServer() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append("audio_file", audioBlob, "voice.webm");
+            formData.append("language", languageSelect.value);
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === "success") {
+                    statusDiv.innerText = "Done!";
+                    resultBox.style.display = "block";
+                    resultBox.innerText = data.text;
+                    
+                    // Automatically prepare the text to be pasted into the chat!
+                    tg.switchInlineQuery(data.text);
+                } else {
+                    statusDiv.innerText = "Error: " + data.message;
+                }
+            } catch (error) {
+                statusDiv.innerText = "Server connection failed.";
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
