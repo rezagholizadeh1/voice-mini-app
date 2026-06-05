@@ -95,31 +95,35 @@
         let audioChunks = [];
         let isRecording = false;
 
+        // 1. Test if the button registers the tap
         recordBtn.addEventListener('click', async () => {
+            // This will pop up a message immediately when you tap the button
+            window.Telegram.WebApp.showAlert("Button tapped!"); 
+            
             if (!isRecording) {
-                try {
-                    // We wrap this in a try-catch to see the hidden error
-                    await startRecording(); 
-                } catch (error) {
-                    window.Telegram.WebApp.showAlert("Microphone Error: " + error.message);
-                }
+                await startRecording();
             } else {
                 stopRecording();
             }
         });
-
+        
         async function startRecording() {
             try {
+                // 2. Check if mediaDevices is even supported by the Telegram WebView
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Your browser/Telegram does not support audio recording.");
+                }
+        
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
-
+        
                 mediaRecorder.ondataavailable = event => {
                     if (event.data.size > 0) audioChunks.push(event.data);
                 };
-
+        
                 mediaRecorder.onstop = sendAudioToServer;
-
+        
                 mediaRecorder.start();
                 isRecording = true;
                 recordBtn.classList.add('recording');
@@ -127,8 +131,9 @@
                 statusDiv.innerText = "Listening...";
                 resultBox.style.display = "none";
             } catch (err) {
-                statusDiv.innerText = "Microphone access denied.";
-                console.error("Mic error:", err);
+                // 3. Force Telegram to show the exact error message
+                statusDiv.innerText = "Error occurred.";
+                window.Telegram.WebApp.showAlert("Mic error: " + err.message);
             }
         }
 
