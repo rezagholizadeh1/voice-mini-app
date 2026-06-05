@@ -141,7 +141,7 @@
         async function sendAudioToServer() {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const formData = new FormData();
-            formData.append("audio_file", audioBlob, "voice.webm");
+            formData.append("audio", audioBlob, "voice.webm");
             formData.append("language", languageSelect.value);
 
             try {
@@ -152,7 +152,7 @@
                 
                 const data = await response.json();
                 
-                if (data.status === "success") {
+                if (data.success === true) {
                     statusDiv.innerText = "Done!";
                     resultBox.style.display = "block";
                     resultBox.innerText = data.text;
@@ -160,7 +160,7 @@
                     // Automatically prepare the text to be pasted into the chat!
                     tg.switchInlineQuery(data.text);
                 } else {
-                    statusDiv.innerText = "Error: " + data.message;
+                    statusDiv.innerText = "Error: " + data.error;
                 }
             } catch (error) {
                 statusDiv.innerText = "Server connection failed.";
