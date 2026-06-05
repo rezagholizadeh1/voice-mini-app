@@ -97,7 +97,12 @@
 
         recordBtn.addEventListener('click', async () => {
             if (!isRecording) {
-                startRecording();
+                try {
+                    // We wrap this in a try-catch to see the hidden error
+                    await startRecording(); 
+                } catch (error) {
+                    window.Telegram.WebApp.showAlert("Microphone Error: " + error.message);
+                }
             } else {
                 stopRecording();
             }
