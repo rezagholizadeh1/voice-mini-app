@@ -95,10 +95,18 @@
         let audioChunks = [];
         let isRecording = false;
 
+        // Helper function to safely show alerts
+        function safeAlert(message) {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showAlert) {
+                window.Telegram.WebApp.showAlert(message);
+            } else {
+                alert(message); // Standard browser fallback
+            }
+        }
+        
         // 1. Test if the button registers the tap
         recordBtn.addEventListener('click', async () => {
-            // This will pop up a message immediately when you tap the button
-            window.Telegram.WebApp.showAlert("Button tapped!"); 
+            safeAlert("Button tapped!"); 
             
             if (!isRecording) {
                 await startRecording();
@@ -109,9 +117,8 @@
         
         async function startRecording() {
             try {
-                // 2. Check if mediaDevices is even supported by the Telegram WebView
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Your browser/Telegram does not support audio recording.");
+                    throw new Error("Your browser does not support audio recording.");
                 }
         
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -131,12 +138,13 @@
                 statusDiv.innerText = "Listening...";
                 resultBox.style.display = "none";
             } catch (err) {
-                // 3. Force Telegram to show the exact error message
                 statusDiv.innerText = "Error occurred.";
-                window.Telegram.WebApp.showAlert("Mic error: " + err.message);
+                safeAlert("Mic error: " + err.message);
             }
         }
 
+        
+       
         function stopRecording() {
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
                 mediaRecorder.stop();
